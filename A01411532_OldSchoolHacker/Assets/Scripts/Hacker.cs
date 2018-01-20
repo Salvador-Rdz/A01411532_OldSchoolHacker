@@ -8,11 +8,15 @@ using UnityEngine.UI;
 public class Hacker : MonoBehaviour {
     #region Class Attributes
     //Attributes
-    const string menuHint = "You can type menu anytime to open it";
+    //Tool strings to contain commonly used messages
+    const string menuHint = "You can type menu anytime to disconnect";
     const string progressDefault = "Progress: ";
     const string attemptDefault = "REMAINING ATTEMPTS: ";
+    //Contains the current status warning text. 
     string statusText = "!FIREWALL DETECTED!";
+    //Counter of level progress, changes depending on the difficulty.
     int progress = 0;
+    //Self-explanatory variables.
     string input;
     int level;
     string password;
@@ -29,7 +33,7 @@ public class Hacker : MonoBehaviour {
     enum GameState { MainMenu,Gameplay,Win, Loss};
     GameState currentState = GameState.MainMenu;
     //References to GameObjects used to manage UI and Sound elements. 
-    private AudioManager adm;
+    private AudioManager audioMgr;
     public Text warningText;
     public Text attemptsText;
     public Text progressText;
@@ -42,12 +46,14 @@ public class Hacker : MonoBehaviour {
     private void Awake()
     {
         //Initiate the audiomanager, finds the "AdminManager" object in the GameObject Hierarchy to utilize its code and resources. Mainly the EG and game sounds
-        adm = FindObjectOfType<AudioManager>();
+        audioMgr = FindObjectOfType<AudioManager>();
         //Hides a few labels and objects.
         attemptsText.enabled = false;
     }
     private void ShowMainMenu()
     {
+        audioMgr.Stop("alarm");
+        //Flavor text
         Terminal.ClearScreen();
         Terminal.WriteLine("Welcome back Operator");
         Terminal.WriteLine("these are the missions for today");
@@ -85,7 +91,7 @@ public class Hacker : MonoBehaviour {
         //close the user
         else if (input == "quit" || input == "close" || input == "exit")
         {
-            Terminal.WriteLine("Please, close the browser's tab");
+            Terminal.WriteLine("Please, close the browser tab");
             Application.Quit();
         }
         //If the user inputs anything that is not menu, quit, close or exit
@@ -106,17 +112,20 @@ public class Hacker : MonoBehaviour {
     {
         if (input == "menu")
         {
+            
             ShowMainMenu();
         }
         //Easter Egg, plays the game over speech from MGS when inputting "snake"
         if(input == "snake")
         {
-            adm.Play("Snake");
+            audioMgr.Play("Snake");
         }
         if (input == password)
         {
+            //We set up a progress bar and progress values, these change with the difficulty level.
             progress++;
             progressText.text = progressDefault + progress + "/" + (level * 2);
+            //Depending on the difficulty level, the words that must be guessed increase.
             if (level == 1 && progress == 2)
             {
                 DisplayWinScreen();
@@ -124,10 +133,12 @@ public class Hacker : MonoBehaviour {
             else if (level == 2 && progress == 4)
             {
                 DisplayWinScreen();
+                audioMgr.Stop("alarm");
             }
             else if (level == 3 && progress == 6)
             {
                 DisplayWinScreen();
+                audioMgr.Stop("alarm");
             }
             else
             {
@@ -137,10 +148,14 @@ public class Hacker : MonoBehaviour {
         }
         else
         {
+            //If the player doesn't get the password right, the attempts counter goes down. 
             attempts--;
+            //This upates the text only if the tag is enabled, and it's only enabled if on levels 2 or higher.
             if (attemptsText.enabled) attemptsText.text = attemptDefault + attempts;
+            //If there are no remaining attempts and the player isn't on level 1
             if (attempts == 0 && level!=1)
             {
+                //We change to the Loss status.
                 DisplayLossScreen();
             }
             else
@@ -149,21 +164,27 @@ public class Hacker : MonoBehaviour {
             }
         }
     }
+    //Displays flavor text and removes currency from the player depending on the difficulty
     private void DisplayLossScreen()
     {
+        audioMgr.Stop("alarm");
+        //Setting up the game state and console display
         currentState = GameState.Loss;
         Terminal.ClearScreen();
         Terminal.WriteLine(menuHint);
+        //Setting up the header's blinking text
         warningText.text = "FAILSAFE ACTIVATED";
         StopAllCoroutines();
         StartCoroutine(BlinkText());
+        //Flavor text
         Terminal.WriteLine("Damn it operator!");
         Terminal.WriteLine("That's going to cost you.");
         Terminal.WriteLine("Lost "+(level * 2)+" btc");
         Terminal.WriteLine("Be more careful next time!");
+        //Money is deducted from the player's account
         money -= level * 2;
     }
-
+    //Displays the win screen flavor text
     private void DisplayWinScreen()
     {
         currentState = GameState.Win;
@@ -171,7 +192,7 @@ public class Hacker : MonoBehaviour {
         Terminal.WriteLine(menuHint);
         ShowLevelReward();
     }
-
+    //Prints the reward flavor text and adds money to the player's bank depending on the level they completed
     private void ShowLevelReward()
     {
         switch(level)
@@ -210,12 +231,17 @@ public class Hacker : MonoBehaviour {
             //Player will have limited attempts when trying harder levels, they will fail if they can't guess all of the words within the attempt limits
             if (input != "1")
             {
+                //Calculating the attempts
                 attempts = 18 / level;
+                //Setting up the text
                 attemptsText.enabled = true;
                 attemptsText.text = attemptDefault + attempts;
+                //Setting up the 'Firewall' flavor text
                 warningText.text = statusText;
                 StopAllCoroutines();
                 StartCoroutine(BlinkText());
+                //Setting up the warning sounds
+                audioMgr.Play("alarm");
             }
             AskForPassword();
         }
@@ -259,25 +285,26 @@ public class Hacker : MonoBehaviour {
                 break;
         }
     }
-    //Small function to empty the text assets into the passwords array.
+    //Small function to empty the text file assets into the on-runtime passwords array.
     void LoadLevels()
     {
         passwordsLevel1 = levels[0].text.Split();
         passwordsLevel2 = levels[1].text.Split();
         passwordsLevel3 = levels[2].text.Split();
     }
-    //function to blink the text
+    //corroutine function to blink the text
     public IEnumerator BlinkText()
     {
         warningText.enabled = true;
         while (level == 2 || level == 3)
         {
+            //Get the current text to blink
             string currentText = warningText.text;
             //set the Text's text to blank
             warningText.text = "";
             //display blank text for 0.5 seconds
             yield return new WaitForSeconds(.5f);
-            //display “!FIREWALL DETECTED” for the next 0.5 seconds
+            //display the current warning text for the next 0.5 seconds
             warningText.text = currentText;
             yield return new WaitForSeconds(.5f);
         }
